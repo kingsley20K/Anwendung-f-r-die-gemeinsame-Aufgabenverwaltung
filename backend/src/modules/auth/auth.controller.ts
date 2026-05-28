@@ -6,7 +6,7 @@ const REFRESH_COOKIE = 'refreshToken';
 const cookieOptions = (nodeEnv: string) => ({
   httpOnly: true,
   secure:   nodeEnv === 'production',
-  sameSite: 'strict' as const,
+  sameSite: (nodeEnv === 'production' ? 'none' : 'strict') as 'none' | 'strict',
   maxAge:   7 * 24 * 60 * 60 * 1000,
   path:     '/api/v1/auth',
 });
