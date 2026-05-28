@@ -12,7 +12,7 @@ declare module 'socket.io' {
 export function initSocketServer(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173', // env not imported to avoid circular init
       methods: ['GET', 'POST'],
       credentials: true,
     },

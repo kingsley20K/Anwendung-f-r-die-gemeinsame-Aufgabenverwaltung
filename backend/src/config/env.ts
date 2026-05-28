@@ -1,17 +1,22 @@
 import dotenv from 'dotenv';
+import { z } from 'zod';
 dotenv.config();
 
-const required = (key: string): string => {
-  const value = process.env[key];
-  if (!value) throw new Error(`Missing required environment variable: ${key}`);
-  return value;
-};
+const envSchema = z.object({
+  NODE_ENV:                z.enum(['development', 'production', 'test']).default('development'),
+  PORT:                    z.coerce.number().default(3000),
+  SUPABASE_URL:            z.string().url('SUPABASE_URL must be a valid URL'),
+  SUPABASE_ANON_KEY:       z.string().min(1, 'SUPABASE_ANON_KEY is required'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  FRONTEND_URL:            z.string().url().default('http://localhost:5173'),
+});
 
-export const env = {
-  port: parseInt(process.env.PORT ?? '3000', 10),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  supabaseUrl: required('SUPABASE_URL'),
-  supabaseAnonKey: required('SUPABASE_ANON_KEY'),
-  supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
-  frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
-};
+const result = envSchema.safeParse(process.env);
+
+if (!result.success) {
+  console.error('Invalid environment variables:');
+  console.error(result.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+export const env = result.data;
