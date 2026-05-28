@@ -30,11 +30,11 @@ export function getSocket(): Socket {
     });
 
     socket.on('card:updated', ({ card }) => {
-      useBoardStore.getState().applyRemoteCardMove(card.id, card.columnId, card.position);
+      useBoardStore.getState().applyRemoteCardUpdated(card);
     });
 
     socket.on('card:moved', ({ card }) => {
-      useBoardStore.getState().applyRemoteCardMove(card.id, card.columnId, card.position);
+      useBoardStore.getState().applyRemoteCardUpdated(card);
     });
 
     socket.on('card:deleted', ({ cardId }) => {
@@ -51,6 +51,20 @@ export function getSocket(): Socket {
 
     socket.on('column:deleted', ({ columnId }) => {
       useBoardStore.getState().applyRemoteColumnDeleted(columnId);
+    });
+
+    socket.on('presence:joined', ({ userId, email, displayName }) => {
+      useBoardStore.getState().addPresenceUser({ userId, email, displayName });
+    });
+
+    socket.on('presence:left', ({ userId }) => {
+      useBoardStore.getState().removePresenceUser(userId);
+    });
+
+    socket.on('board:joined', ({ presentUsers }) => {
+      if (Array.isArray(presentUsers)) {
+        useBoardStore.getState().setPresenceUsers(presentUsers);
+      }
     });
   }
 

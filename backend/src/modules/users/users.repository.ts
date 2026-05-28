@@ -30,4 +30,13 @@ export const usersRepository = {
       .single();
     return data;
   },
+
+  async findAll() {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id, display_name, email')
+      .order('display_name');
+    if (error) throw { status: 500, code: 'INTERNAL_ERROR', message: error.message };
+    return (data ?? []).map((u: any) => ({ id: u.id, displayName: u.display_name, email: u.email }));
+  },
 };

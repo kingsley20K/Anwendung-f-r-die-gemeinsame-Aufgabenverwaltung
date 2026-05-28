@@ -19,11 +19,13 @@ export const usersController = {
   async search(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = req.query;
-      if (!email || typeof email !== 'string') {
-        return next({ status: 400, code: 'VALIDATION_ERROR', message: 'email query param required' });
+      if (email && typeof email === 'string') {
+        const user = await usersService.findByEmail(email);
+        return res.json(user);
       }
-      const user = await usersService.findByEmail(email);
-      res.json(user);
+      // No email param → return all users
+      const users = await usersService.listAll();
+      res.json({ users });
     } catch (err) { next(err); }
   },
 };

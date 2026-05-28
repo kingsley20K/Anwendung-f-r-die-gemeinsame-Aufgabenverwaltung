@@ -7,10 +7,11 @@ import * as authApi from '../api/endpoints/auth.api';
 interface AuthState {
   user: User | null;
   isBooting: boolean;
-  login:    (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
-  logout:   () => Promise<void>;
-  init:     () => Promise<void>;
+  login:         (email: string, password: string) => Promise<void>;
+  register:      (email: string, password: string, displayName: string) => Promise<void>;
+  logout:        () => Promise<void>;
+  init:          () => Promise<void>;
+  updateProfile: (data: { displayName?: string }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -50,6 +51,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     tokenStore.set(data.accessToken);
     set({ user: data.user });
     connectSocket();
+  },
+
+  async updateProfile(data) {
+    const updated = await authApi.updateMe(data);
+    set({ user: updated });
   },
 
   async logout() {

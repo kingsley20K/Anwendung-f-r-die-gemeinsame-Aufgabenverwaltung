@@ -18,13 +18,36 @@ export function registerSocketHandlers(io: SocketServer, socket: Socket) {
     const room = `board:${boardId}`;
     await socket.join(room);
 
-    socket.to(room).emit('presence:joined', { userId: socket.user.id, boardId });
-    socket.emit('board:joined', { boardId });
+    socket.to(room).emit('presence:joined', {
+      userId:      socket.user.id,
+      email:       socket.user.email,
+      displayName: socket.user.displayName,
+      boardId,
+    });
+
+    const socketsInRoom = await io.in(room).fetchSockets();
+    const presentUsers = socketsInRoom
+      .filter((s) => s.id !== socket.id)
+      .map((s) => ({
+        userId:      (s as unknown as Socket).user.id,
+        email:       (s as unknown as Socket).user.email,
+        displayName: (s as unknown as Socket).user.displayName,
+      }));
+
+    socket.emit('board:joined', { boardId, presentUsers });
   });
 
   socket.on('board:leave', async ({ boardId }: { boardId: string }) => {
     const room = `board:${boardId}`;
     await socket.leave(room);
     socket.to(room).emit('presence:left', { userId: socket.user.id, boardId });
+  });
+
+  socket.on('disconnect', () => {
+    for (const room of socket.rooms) {
+      if (room.startsWith('board:')) {
+        socket.to(room).emit('presence:left', { userId: socket.user.id });
+      }
+    }
   });
 }

@@ -5,11 +5,15 @@ import {
   type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core';
 import { useBoardStore } from '../store/boardStore';
+import { useAuthStore } from '../store/authStore';
 import { Column } from '../components/board/Column';
 import { CardItem } from '../components/board/CardItem';
+import { EditableTitle } from '../components/board/EditableTitle';
+import { MembersPanel } from '../components/board/MembersPanel';
 import { joinBoard, leaveBoard } from '../sockets/socket.client';
 import * as cardsApi from '../api/endpoints/cards.api';
 import * as columnsApi from '../api/endpoints/columns.api';
+import * as boardsApi from '../api/endpoints/boards.api';
 import type { Card } from '../types';
 
 function computePosition(cards: Card[], overId: string): number {
@@ -23,10 +27,13 @@ function computePosition(cards: Card[], overId: string): number {
 export function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
-  const { board, isLoading, loadBoard, clearBoard, moveCardOptimistic, rollbackCard, applyRemoteColumnCreated } = useBoardStore();
+  const { board, isLoading, loadBoard, clearBoard, moveCardOptimistic, rollbackCard, applyRemoteColumnCreated, applyRemoteBoardTitleUpdated, presenceUsers } = useBoardStore();
+  const { user } = useAuthStore();
 
   const [activeCard, setActiveCard]     = useState<Card | null>(null);
   const [dragSnapshot, setDragSnapshot] = useState<{ columnId: string; position: number } | null>(null);
+
+  const [showMembers, setShowMembers] = useState(false);
 
   // Add-column form state
   const [addingColumn, setAddingColumn] = useState(false);
@@ -75,6 +82,12 @@ export function BoardPage() {
     }
   }, [board, boardId, dragSnapshot, moveCardOptimistic, rollbackCard]);
 
+  async function handleRenameBoard(newTitle: string) {
+    if (!boardId) return;
+    const updated = await boardsApi.updateBoard(boardId, { title: newTitle });
+    applyRemoteBoardTitleUpdated(updated.title);
+  }
+
   async function handleAddColumn(e: FormEvent) {
     e.preventDefault();
     if (!columnTitle.trim() || !boardId) return;
@@ -103,8 +116,58 @@ export function BoardPage() {
         >
           ← Retour
         </button>
-        <h1 className="text-white font-bold text-lg truncate">{board.title}</h1>
+        <EditableTitle
+          value={board.title}
+          onSave={handleRenameBoard}
+          className="font-bold text-white text-lg"
+          inputClassName="font-bold text-white text-lg bg-blue-700 rounded px-1"
+        />
+
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Presence avatars — current user + others on the board */}
+          <div className="flex items-center -space-x-2">
+            {/* Current user always shown */}
+            {user && (
+              <div
+                title={`${user.displayName} (vous)`}
+                className="w-8 h-8 rounded-full bg-green-400 border-2 border-blue-600 flex items-center justify-center text-xs font-bold text-white uppercase select-none z-10"
+              >
+                {(user.displayName || user.email).charAt(0)}
+              </div>
+            )}
+            {presenceUsers.slice(0, 4).map((u) => (
+              <div
+                key={u.userId}
+                title={u.displayName || u.email}
+                className="w-8 h-8 rounded-full bg-blue-300 border-2 border-blue-600 flex items-center justify-center text-xs font-bold text-white uppercase select-none"
+              >
+                {(u.displayName || u.email).charAt(0)}
+              </div>
+            ))}
+            {presenceUsers.length > 4 && (
+              <div className="w-8 h-8 rounded-full bg-blue-200 border-2 border-blue-600 flex items-center justify-center text-xs font-bold text-blue-700 select-none">
+                +{presenceUsers.length - 4}
+              </div>
+            )}
+          </div>
+
+          {/* Members button */}
+          <button
+            onClick={() => setShowMembers(true)}
+            className="text-blue-100 hover:text-white hover:bg-blue-500 transition-colors text-sm font-medium px-3 py-1.5 rounded-lg"
+          >
+            Membres
+          </button>
+        </div>
       </header>
+
+      {showMembers && (
+        <MembersPanel
+          boardId={board.id}
+          ownerId={board.owner.id}
+          onClose={() => setShowMembers(false)}
+        />
+      )}
 
       <main className="flex-1 overflow-hidden">
         <DndContext collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -157,7 +220,7 @@ export function BoardPage() {
           </div>
 
           <DragOverlay>
-            {activeCard ? <CardItem card={activeCard} isDragging /> : null}
+            {activeCard ? <CardItem card={activeCard} boardId={board.id} isDragging /> : null}
           </DragOverlay>
         </DndContext>
       </main>

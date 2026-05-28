@@ -18,4 +18,8 @@ export const usersService = {
     if (!user) throw { status: 404, code: 'NOT_FOUND', message: 'User not found' };
     return { id: user.id, displayName: user.display_name };
   },
+
+  async listAll() {
+    return usersRepository.findAll();
+  },
 };

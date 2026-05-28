@@ -5,14 +5,14 @@ import { registerSocketHandlers } from './socket.handlers';
 
 declare module 'socket.io' {
   interface Socket {
-    user: { id: string; email: string };
+    user: { id: string; email: string; displayName: string };
   }
 }
 
 export function initSocketServer(httpServer: HttpServer): SocketServer {
   const io = new SocketServer(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173', // env not imported to avoid circular init
+      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -25,16 +25,25 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
     const { data, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !data.user) return next(new Error('UNAUTHORIZED'));
 
-    socket.user = { id: data.user.id, email: data.user.email! };
+    const { data: profile } = await supabaseAdmin
+      .from('users')
+      .select('display_name')
+      .eq('id', data.user.id)
+      .single();
+
+    socket.user = {
+      id:          data.user.id,
+      email:       data.user.email!,
+      displayName: profile?.display_name ?? data.user.email!,
+    };
     next();
   });
 
   io.on('connection', (socket: Socket) => {
-    console.log(`Socket connected: ${socket.user.id} (${socket.id})`);
     registerSocketHandlers(io, socket);
 
-    socket.on('disconnect', (reason) => {
-      console.log(`Socket disconnected: ${socket.user.id} — reason: ${reason}`);
+    socket.on('disconnect', () => {
+      // presence:left is handled per-room in registerSocketHandlers
     });
   });
 

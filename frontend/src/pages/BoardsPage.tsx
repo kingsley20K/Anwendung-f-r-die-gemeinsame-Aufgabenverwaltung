@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { getBoards, createBoard } from '../api/endpoints/boards.api';
+import { getBoards, createBoard, deleteBoard } from '../api/endpoints/boards.api';
+import { ProfileModal } from '../components/ui/ProfileModal';
 import type { Board } from '../types';
 
 export function BoardsPage() {
@@ -14,6 +15,9 @@ export function BoardsPage() {
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating]   = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     getBoards()
@@ -39,6 +43,19 @@ export function BoardsPage() {
     }
   }
 
+  async function handleDeleteBoard(boardId: string) {
+    setDeletingId(boardId);
+    try {
+      await deleteBoard(boardId);
+      setBoards((prev) => prev.filter((b) => b.id !== boardId));
+      setConfirmDeleteId(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function handleLogout() {
     await logout();
     navigate('/login');
@@ -49,8 +66,16 @@ export function BoardsPage() {
       {/* Header */}
       <header className="bg-blue-600 px-6 py-4 flex items-center justify-between shadow">
         <h1 className="text-white font-bold text-xl">Task Board</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-blue-100 text-sm">{user?.displayName}</span>
+        <div className="flex items-center gap-3">
+          {/* Profile avatar button */}
+          <button
+            onClick={() => setShowProfile(true)}
+            title="Modifier mon profil"
+            className="w-9 h-9 rounded-full bg-blue-400 hover:bg-blue-300 border-2 border-blue-500 flex items-center justify-center text-sm font-bold text-white uppercase transition-colors"
+          >
+            {(user?.displayName ?? user?.email ?? '?').charAt(0)}
+          </button>
+          <span className="text-blue-100 text-sm hidden sm:block">{user?.displayName}</span>
           <button
             onClick={handleLogout}
             className="text-sm text-white bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg transition-colors"
@@ -59,6 +84,8 @@ export function BoardsPage() {
           </button>
         </div>
       </header>
+
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
 
       <main className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
@@ -127,19 +154,50 @@ export function BoardsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {boards.map((board) => (
-              <button
+              <div
                 key={board.id}
-                onClick={() => navigate(`/boards/${board.id}`)}
-                className="bg-white border border-gray-200 rounded-xl p-5 text-left hover:shadow-md hover:border-blue-300 transition-all"
+                className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-blue-300 transition-all relative"
               >
-                <h3 className="font-semibold text-gray-800 mb-1 truncate">{board.title}</h3>
-                {board.description && (
-                  <p className="text-gray-500 text-sm line-clamp-2">{board.description}</p>
-                )}
-                <p className="text-xs text-gray-400 mt-3">
-                  Ouvrir le tableau
-                </p>
-              </button>
+                <div
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/boards/${board.id}`)}
+                >
+                  <h3 className="font-semibold text-gray-800 mb-1 truncate pr-6">{board.title}</h3>
+                  {board.description && (
+                    <p className="text-gray-500 text-sm line-clamp-2">{board.description}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-3">Ouvrir le tableau</p>
+                </div>
+
+                {/* Delete board */}
+                <div className="absolute top-3 right-3">
+                  {confirmDeleteId === board.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDeleteBoard(board.id)}
+                        disabled={deletingId === board.id}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      >
+                        {deletingId === board.id ? '…' : 'Oui'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-xs text-gray-400 hover:text-gray-600"
+                      >
+                        Non
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(board.id); }}
+                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-base leading-none"
+                      aria-label="Supprimer le tableau"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         )}

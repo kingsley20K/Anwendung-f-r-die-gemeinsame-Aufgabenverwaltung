@@ -13,7 +13,12 @@ export const authRepository = {
 
   async signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw { status: 401, code: 'UNAUTHORIZED', message: 'Invalid credentials' };
+    if (error) {
+      const message = error.message.toLowerCase().includes('confirm')
+        ? 'Please confirm your email address before logging in'
+        : 'Invalid email or password';
+      throw { status: 401, code: 'UNAUTHORIZED', message };
+    }
     return data;
   },
 

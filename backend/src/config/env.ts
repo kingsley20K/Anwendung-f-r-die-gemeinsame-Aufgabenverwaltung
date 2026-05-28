@@ -1,6 +1,12 @@
 import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 import { z } from 'zod';
-dotenv.config();
+
+// In a monorepo, the .env lives at the project root (parent of backend/).
+// In Docker, env vars are injected directly and no file is needed.
+const envPath = existsSync('.env') ? '.env' : resolve(process.cwd(), '../.env');
+dotenv.config({ path: envPath });
 
 const envSchema = z.object({
   NODE_ENV:                z.enum(['development', 'production', 'test']).default('development'),
