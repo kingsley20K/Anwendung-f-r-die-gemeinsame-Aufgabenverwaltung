@@ -137,7 +137,7 @@ export function BoardsPage() {
                   <p className="text-gray-500 text-sm line-clamp-2">{board.description}</p>
                 )}
                 <p className="text-xs text-gray-400 mt-3">
-                  {board.columns.length} colonne{board.columns.length !== 1 ? 's' : ''}
+                  Ouvrir le tableau
                 </p>
               </button>
             ))}
