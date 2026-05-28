@@ -2,10 +2,12 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { tokenStore } from './tokenStore';
 import { ApiError } from './ApiError';
 
-const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000') + '/api/v1';
+// Base origin only — Axios combineURLs would double-prefix if we added /api/v1 here,
+// because all endpoint paths already start with /api/v1/...
+const ORIGIN = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 export const apiClient = axios.create({
-  baseURL: BASE_URL,
+  baseURL: ORIGIN,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -60,7 +62,7 @@ apiClient.interceptors.response.use(
 
     try {
       const { data } = await axios.post<{ accessToken: string }>(
-        `${BASE_URL}/auth/refresh`,
+        `${ORIGIN}/api/v1/auth/refresh`,
         {},
         { withCredentials: true },
       );
@@ -80,8 +82,8 @@ apiClient.interceptors.response.use(
 );
 
 export const api = {
-  get:    <T>(path: string, config?: object)              => apiClient.get<T>(path, config).then((r) => r.data),
+  get:    <T>(path: string, config?: object)                 => apiClient.get<T>(path, config).then((r) => r.data),
   post:   <T>(path: string, body?: unknown, config?: object) => apiClient.post<T>(path, body, config).then((r) => r.data),
   patch:  <T>(path: string, body?: unknown, config?: object) => apiClient.patch<T>(path, body, config).then((r) => r.data),
-  delete: <T>(path: string, config?: object)              => apiClient.delete<T>(path, config).then((r) => r.data),
+  delete: <T>(path: string, config?: object)                 => apiClient.delete<T>(path, config).then((r) => r.data),
 };

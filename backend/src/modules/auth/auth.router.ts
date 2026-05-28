@@ -15,13 +15,10 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-const refreshSchema = z.object({
-  refreshToken: z.string(),
-});
-
 export const authRouter = Router();
 
 authRouter.post('/register', validateBody(registerSchema), authController.register);
 authRouter.post('/login',    validateBody(loginSchema),    authController.login);
-authRouter.post('/refresh',  validateBody(refreshSchema),  authController.refresh);
+// refresh token comes from httpOnly cookie — no body validation needed
+authRouter.post('/refresh',  authController.refresh);
 authRouter.post('/logout',   authenticate,                 authController.logout);
