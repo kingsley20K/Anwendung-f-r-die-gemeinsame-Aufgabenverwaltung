@@ -21,36 +21,36 @@ export function getSocket(): Socket {
       }
     });
 
-    socket.on('reconnect', async () => {
+    socket.on('reconnect', () => {
       socket!.auth = { token: tokenStore.get() };
     });
 
-    socket.on('card:created', ({ card, columnId, boardId }) => {
-      useBoardStore.getState().applyCardCreated(card, columnId);
+    socket.on('card:created', ({ card }) => {
+      useBoardStore.getState().applyRemoteCardCreated(card);
     });
 
     socket.on('card:updated', ({ card }) => {
-      useBoardStore.getState().applyCardUpdated(card);
+      useBoardStore.getState().applyRemoteCardMove(card.id, card.columnId, card.position);
     });
 
     socket.on('card:moved', ({ card }) => {
-      useBoardStore.getState().applyCardUpdated(card);
+      useBoardStore.getState().applyRemoteCardMove(card.id, card.columnId, card.position);
     });
 
-    socket.on('card:deleted', ({ cardId, columnId }) => {
-      useBoardStore.getState().applyCardDeleted(cardId, columnId);
+    socket.on('card:deleted', ({ cardId }) => {
+      useBoardStore.getState().applyRemoteCardDeleted(cardId);
     });
 
     socket.on('column:created', ({ column }) => {
-      useBoardStore.getState().applyColumnCreated(column);
+      useBoardStore.getState().applyRemoteColumnCreated(column);
     });
 
     socket.on('column:updated', ({ column }) => {
-      useBoardStore.getState().applyColumnUpdated(column);
+      useBoardStore.getState().applyRemoteColumnUpdated(column);
     });
 
     socket.on('column:deleted', ({ columnId }) => {
-      useBoardStore.getState().applyColumnDeleted(columnId);
+      useBoardStore.getState().applyRemoteColumnDeleted(columnId);
     });
   }
 

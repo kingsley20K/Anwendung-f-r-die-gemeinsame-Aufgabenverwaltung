@@ -1,122 +1,124 @@
 import { create } from 'zustand';
-
-export interface Card {
-  id: string;
-  columnId: string;
-  title: string;
-  description: string | null;
-  position: number;
-  createdAt: string;
-}
-
-export interface Column {
-  id: string;
-  boardId: string;
-  title: string;
-  position: number;
-  cards: Card[];
-}
+import type { Board, Card, Column } from '../types';
 
 interface BoardState {
-  boardId: string | null;
-  columns: Column[];
+  board: Board | null;
+  isLoading: boolean;
 
-  setBoard: (boardId: string, columns: Column[]) => void;
+  loadBoard: (boardId: string) => Promise<void>;
   clearBoard: () => void;
 
-  // Optimistic updates (local-first)
-  moveCardOptimistic: (cardId: string, targetColumnId: string, position: number) => void;
-  rollbackCard: (cardId: string, originalColumnId: string, originalPosition: number) => void;
+  moveCardOptimistic: (cardId: string, toColumnId: string, position: number) => void;
+  rollbackCard: (cardId: string, fromColumnId: string, originalPosition: number) => void;
 
-  // Applied from WebSocket events
-  applyCardCreated: (card: Card, columnId: string) => void;
-  applyCardUpdated: (card: Card) => void;
-  applyCardDeleted: (cardId: string, columnId: string) => void;
-  applyColumnCreated: (column: Column) => void;
-  applyColumnUpdated: (column: Column) => void;
-  applyColumnDeleted: (columnId: string) => void;
+  applyRemoteCardMove: (cardId: string, toColumnId: string, position: number) => void;
+  applyRemoteCardCreated: (card: Card) => void;
+  applyRemoteCardDeleted: (cardId: string) => void;
+  applyRemoteColumnCreated: (column: Column) => void;
+  applyRemoteColumnUpdated: (column: Column) => void;
+  applyRemoteColumnDeleted: (columnId: string) => void;
+}
+
+function moveCard(board: Board, cardId: string, toColumnId: string, position: number): Board {
+  let movedCard: Card | undefined;
+  const withoutCard = board.columns.map((col) => {
+    const card = col.cards.find((c) => c.id === cardId);
+    if (card) {
+      movedCard = { ...card, columnId: toColumnId, position };
+      return { ...col, cards: col.cards.filter((c) => c.id !== cardId) };
+    }
+    return col;
+  });
+  if (!movedCard) return board;
+
+  const withCard = withoutCard.map((col) =>
+    col.id === toColumnId
+      ? { ...col, cards: [...col.cards, movedCard!].sort((a, b) => a.position - b.position) }
+      : col,
+  );
+  return { ...board, columns: withCard };
 }
 
 export const useBoardStore = create<BoardState>((set, get) => ({
-  boardId: null,
-  columns: [],
+  board: null,
+  isLoading: false,
 
-  setBoard(boardId, columns) {
-    set({ boardId, columns: [...columns].sort((a, b) => a.position - b.position) });
+  async loadBoard(boardId) {
+    set({ isLoading: true });
+    try {
+      const { getBoardById } = await import('../api/endpoints/boards.api');
+      const board = await getBoardById(boardId);
+      set({ board, isLoading: false });
+    } catch {
+      set({ isLoading: false });
+    }
   },
 
   clearBoard() {
-    set({ boardId: null, columns: [] });
+    set({ board: null });
   },
 
-  moveCardOptimistic(cardId, targetColumnId, position) {
+  moveCardOptimistic(cardId, toColumnId, position) {
     set((state) => {
-      const card = state.columns.flatMap(c => c.cards).find(c => c.id === cardId);
-      if (!card) return state;
-      return {
-        columns: state.columns.map(col => ({
-          ...col,
-          cards: col.id === targetColumnId
-            ? [...col.cards.filter(c => c.id !== cardId), { ...card, columnId: targetColumnId, position }]
-                .sort((a, b) => a.position - b.position)
-            : col.cards.filter(c => c.id !== cardId),
-        })),
-      };
+      if (!state.board) return state;
+      return { board: moveCard(state.board, cardId, toColumnId, position) };
     });
   },
 
-  rollbackCard(cardId, originalColumnId, originalPosition) {
-    get().moveCardOptimistic(cardId, originalColumnId, originalPosition);
+  rollbackCard(cardId, fromColumnId, originalPosition) {
+    get().moveCardOptimistic(cardId, fromColumnId, originalPosition);
   },
 
-  applyCardCreated(card, columnId) {
-    set((state) => ({
-      columns: state.columns.map(col =>
-        col.id === columnId
+  applyRemoteCardMove(cardId, toColumnId, position) {
+    get().moveCardOptimistic(cardId, toColumnId, position);
+  },
+
+  applyRemoteCardCreated(card) {
+    set((state) => {
+      if (!state.board) return state;
+      const columns = state.board.columns.map((col) =>
+        col.id === card.columnId
           ? { ...col, cards: [...col.cards, card].sort((a, b) => a.position - b.position) }
           : col,
-      ),
-    }));
+      );
+      return { board: { ...state.board, columns } };
+    });
   },
 
-  applyCardUpdated(card) {
-    set((state) => ({
-      columns: state.columns.map(col => ({
+  applyRemoteCardDeleted(cardId) {
+    set((state) => {
+      if (!state.board) return state;
+      const columns = state.board.columns.map((col) => ({
         ...col,
-        cards: col.id === card.columnId
-          ? [...col.cards.filter(c => c.id !== card.id), card].sort((a, b) => a.position - b.position)
-          : col.cards.filter(c => c.id !== card.id),
-      })),
-    }));
+        cards: col.cards.filter((c) => c.id !== cardId),
+      }));
+      return { board: { ...state.board, columns } };
+    });
   },
 
-  applyCardDeleted(cardId, columnId) {
-    set((state) => ({
-      columns: state.columns.map(col =>
-        col.id === columnId
-          ? { ...col, cards: col.cards.filter(c => c.id !== cardId) }
-          : col,
-      ),
-    }));
+  applyRemoteColumnCreated(column) {
+    set((state) => {
+      if (!state.board) return state;
+      const columns = [...state.board.columns, { ...column, cards: [] }]
+        .sort((a, b) => a.position - b.position);
+      return { board: { ...state.board, columns } };
+    });
   },
 
-  applyColumnCreated(column) {
-    set((state) => ({
-      columns: [...state.columns, { ...column, cards: [] }].sort((a, b) => a.position - b.position),
-    }));
+  applyRemoteColumnUpdated(column) {
+    set((state) => {
+      if (!state.board) return state;
+      const columns = state.board.columns
+        .map((col) => col.id === column.id ? { ...col, ...column } : col)
+        .sort((a, b) => a.position - b.position);
+      return { board: { ...state.board, columns } };
+    });
   },
 
-  applyColumnUpdated(column) {
-    set((state) => ({
-      columns: state.columns
-        .map(col => col.id === column.id ? { ...col, ...column } : col)
-        .sort((a, b) => a.position - b.position),
-    }));
-  },
-
-  applyColumnDeleted(columnId) {
-    set((state) => ({
-      columns: state.columns.filter(col => col.id !== columnId),
-    }));
+  applyRemoteColumnDeleted(columnId) {
+    set((state) => {
+      if (!state.board) return state;
+      return { board: { ...state.board, columns: state.board.columns.filter((c) => c.id !== columnId) } };
+    });
   },
 }));
