@@ -1,4 +1,4 @@
-import { supabase } from '../../config/db';
+import { supabase, supabaseAdmin } from '../../config/db';
 
 export const authRepository = {
   async signUp(email: string, password: string, displayName: string) {
@@ -23,8 +23,8 @@ export const authRepository = {
     return data;
   },
 
-  async signOut(accessToken: string) {
-    const { error } = await supabase.auth.admin.signOut(accessToken);
+  async signOut(userId: string) {
+    const { error } = await supabaseAdmin.auth.admin.signOut(userId);
     if (error) throw { status: 500, code: 'INTERNAL_ERROR', message: error.message };
   },
 };

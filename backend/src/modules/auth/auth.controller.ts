@@ -25,8 +25,7 @@ export const authController = {
 
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      const token = req.headers.authorization!.slice(7);
-      await authService.logout(token);
+      await authService.logout(req.user!.id);
       res.status(204).send();
     } catch (err) { next(err); }
   },

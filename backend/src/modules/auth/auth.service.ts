@@ -44,7 +44,7 @@ export const authService = {
     return { accessToken: result.session.access_token };
   },
 
-  async logout(accessToken: string) {
-    await authRepository.signOut(accessToken);
+  async logout(userId: string) {
+    await authRepository.signOut(userId);
   },
 };
