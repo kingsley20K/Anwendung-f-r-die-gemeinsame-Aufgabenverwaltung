@@ -87,6 +87,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteCardUpdated(card) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: only update if the card actually exists — prevents creating a ghost card
+      const exists = s.board.columns.some((col) => col.cards.some((c) => c.id === card.id));
+      if (!exists) return s;
       const withoutCard = s.board.columns.map((col) => ({
         ...col, cards: col.cards.filter((c) => c.id !== card.id),
       }));
@@ -102,6 +105,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteCardCreated(card) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: skip if card already exists (duplicate event from own socket)
       const exists = s.board.columns.some((col) => col.cards.some((c) => c.id === card.id));
       if (exists) return s;
       const columns = s.board.columns.map((col) =>
@@ -116,6 +120,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteCardDeleted(cardId) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: skip if card doesn't exist
+      const exists = s.board.columns.some((col) => col.cards.some((c) => c.id === cardId));
+      if (!exists) return s;
       const columns = s.board.columns.map((col) => ({
         ...col, cards: col.cards.filter((c) => c.id !== cardId),
       }));
@@ -126,6 +133,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteColumnCreated(column) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: skip if column already exists (duplicate event from own socket)
       const exists = s.board.columns.some((col) => col.id === column.id);
       if (exists) return s;
       const columns = [...s.board.columns, { ...column, cards: [] }]
@@ -137,6 +145,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteColumnUpdated(column) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: skip if column doesn't exist
+      const exists = s.board.columns.some((col) => col.id === column.id);
+      if (!exists) return s;
       const columns = s.board.columns
         .map((col) => col.id === column.id ? { ...col, ...column } : col)
         .sort((a, b) => a.position - b.position);
@@ -147,12 +158,16 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   applyRemoteColumnDeleted(columnId) {
     set((s) => {
       if (!s.board) return s;
+      // Guard: skip if column doesn't exist
+      const exists = s.board.columns.some((col) => col.id === columnId);
+      if (!exists) return s;
       return { board: { ...s.board, columns: s.board.columns.filter((c) => c.id !== columnId) } };
     });
   },
 
   applyRemoteBoardTitleUpdated(title) {
-    set((s) => s.board ? { board: { ...s.board, title } } : s);
+    // Guard: skip if title is already identical
+    set((s) => s.board && s.board.title !== title ? { board: { ...s.board, title } } : s);
   },
 
   addPresenceUser(user) {
