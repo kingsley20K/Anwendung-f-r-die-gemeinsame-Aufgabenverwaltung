@@ -1,6 +1,7 @@
 import './config/env';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { authRouter } from './modules/auth/auth.router';
 import { usersRouter } from './modules/users/users.router';
@@ -9,8 +10,9 @@ import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 
-app.use(cors({ origin: env.frontendUrl }));
+app.use(cors({ origin: env.frontendUrl, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/api/v1/auth',   authRouter);
 app.use('/api/v1/users',  usersRouter);

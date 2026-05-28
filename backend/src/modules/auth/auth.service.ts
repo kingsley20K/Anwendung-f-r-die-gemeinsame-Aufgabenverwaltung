@@ -41,7 +41,10 @@ export const authService = {
     if (!result.session) {
       throw { status: 401, code: 'TOKEN_EXPIRED', message: 'Invalid refresh token' };
     }
-    return { accessToken: result.session.access_token };
+    return {
+      accessToken:  result.session.access_token,
+      refreshToken: result.session.refresh_token,
+    };
   },
 
   async logout(userId: string) {
