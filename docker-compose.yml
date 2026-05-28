@@ -1,0 +1,37 @@
+# Development compose — uses Supabase cloud (no local PostgreSQL needed)
+# Start with: docker compose up
+services:
+  backend:
+    build:
+      context: ./backend
+      # Use the builder stage so devDependencies (ts-node-dev) are available
+      target: builder
+    command: npm run dev
+    environment:
+      NODE_ENV:                 development
+      PORT:                     3000
+      SUPABASE_URL:             ${SUPABASE_URL}
+      SUPABASE_ANON_KEY:        ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      FRONTEND_URL:             http://localhost:5173
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source so ts-node-dev hot-reload picks up changes without rebuilding
+      - ./backend/src:/app/src
+    env_file:
+      - .env
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    command: npm run dev -- --host
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
